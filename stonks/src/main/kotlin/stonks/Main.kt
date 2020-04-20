@@ -3,10 +3,7 @@
 package stonks
 
 import com.fasterxml.jackson.module.kotlin.KotlinModule
-import io.ktor.application.Application
-import io.ktor.application.ApplicationCall
-import io.ktor.application.call
-import io.ktor.application.install
+import io.ktor.application.*
 import io.ktor.features.BadRequestException
 import io.ktor.features.ContentNegotiation
 import io.ktor.http.HttpStatusCode
@@ -21,9 +18,11 @@ import io.ktor.util.pipeline.PipelineContext
 
 
 fun main() {
-    embeddedServer(Netty, port = System.getProperty("port").toIntOrNull() ?: 8080) {
+    val server = embeddedServer(Netty, port = 8080) {
         configure()
-    }.start(wait = true)
+    }
+    println("Started")
+    server.start(wait = true)
 }
 
 class Stonks {
@@ -45,6 +44,10 @@ fun Application.configure() {
     }
 
     routing {
+        get("/") {
+            call.respond(HttpStatusCode.OK)
+        }
+
         get("getPrice") {
             val company = call.request.queryParameters["company"]
             val price = company?.let {
@@ -59,9 +62,12 @@ fun Application.configure() {
         }
 
         post("createCompany") {
-            val company = queryParam("company").company(stonks)
+            val company = queryParam("company")
+            if (company in stonks.amount) {
+                throw BadRequestException("Company $company already exists")
+            }
             val price = queryParam("price").toDoubleOrNull().positive()
-            val count = queryParam("count").toDoubleOrNull().positive()
+            val count = queryParam("amount").toDoubleOrNull().positive()
             stonks.amount[company] = count
             stonks.prices[company] = price
             call.respond(HttpStatusCode.OK)

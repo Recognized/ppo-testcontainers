@@ -3,7 +3,7 @@ package cabinet
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.features.json.JacksonSerializer
 import io.ktor.client.features.json.JsonFeature
 import io.ktor.client.request.get
@@ -24,9 +24,10 @@ data class StonksInfo(val company: String, val amount: Double, val netWorth: Dou
 class Stocks(val price: Double, val count: Double)
 
 class Cabinet(private val stocksUrl: String) : Closeable {
-    private val client = HttpClient(CIO) {
+    val client = HttpClient(OkHttp) {
+
         install(JsonFeature) {
-            serializer = JacksonSerializer(jacksonObjectMapper().registerModule(KotlinModule()))
+            serializer = JacksonSerializer()
         }
 
         expectSuccess = true
@@ -103,7 +104,7 @@ class Cabinet(private val stocksUrl: String) : Closeable {
         }
 
         data(user).money -= price * amount
-        data(user).stonks[company] = data(user).stonks[company]!! + amount
+        data(user).stonks[company] = (data(user).stonks[company] ?: 0.0) + amount
     }
 
     fun userCabinet(user: Int): UserCabinet {
@@ -111,6 +112,8 @@ class Cabinet(private val stocksUrl: String) : Closeable {
             override fun createUser(): Int {
                 return this@Cabinet.createUser()
             }
+
+            override val id: Int = user
 
             override suspend fun buy(company: String, amount: Double) {
                 buyStonks(user, company, amount)
@@ -132,8 +135,16 @@ class Cabinet(private val stocksUrl: String) : Closeable {
 
     fun adminCabinet(): AdminCabinet {
         return object : AdminCabinet {
+            override fun createUser(): Int {
+                return this@Cabinet.createUser()
+            }
+
+            override fun addMoney(user: Int, money: Double) {
+                this@Cabinet.addMoney(user, money)
+            }
+
             override suspend fun createCompany(company: String, price: Double, amount: Double) {
-                client.post<Unit>("$stocksUrl/createCompany") {
+                client.post<String>("$stocksUrl/createCompany") {
                     parameter("company", company)
                     parameter("price", price)
                     parameter("amount", amount)

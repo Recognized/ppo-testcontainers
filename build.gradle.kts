@@ -2,13 +2,23 @@ buildscript {
     repositories {
         jcenter()
     }
+
+    dependencies {
+        classpath(kotlin("gradle-plugin", version = "1.3.72"))
+    }
 }
 
 plugins {
     kotlin("jvm") version Versions.kotlin
     kotlin("plugin.serialization") version Versions.kotlin
     application
-    id("com.github.johnrengelman.shadow") version "2.0.1"
+    id("com.github.johnrengelman.shadow") version "4.0.3"
+}
+
+repositories {
+    jcenter()
+    mavenCentral()
+    google()
 }
 
 subprojects {
@@ -16,9 +26,6 @@ subprojects {
         jcenter()
         mavenCentral()
         google()
-
-//    maven("https://dl.bintray.com/kotlin/ktor")
-//    maven("https://dl.bintray.com/kotlin/kotlinx")
     }
 
     apply(plugin = "org.jetbrains.kotlin.jvm")
@@ -43,7 +50,7 @@ subprojects {
         implementation("org.slf4j:slf4j-simple:1.7.29")
 
         implementation("io.ktor:ktor-client-core:${Versions.ktor}")
-        implementation("io.ktor:ktor-client-cio:${Versions.ktor}")
+        implementation("io.ktor:ktor-client-okhttp:${Versions.ktor}")
         implementation("io.ktor:ktor-jackson:${Versions.ktor}")
         implementation("io.ktor:ktor-client-jackson:${Versions.ktor}")
         testImplementation(kotlin("test"))
@@ -54,14 +61,15 @@ subprojects {
 
 
 project(":stonks") {
-    val jar: org.gradle.jvm.tasks.Jar by tasks
-    jar.manifest {
-        attributes["Main-Class"] = "stonks.MainKt"
-    }
-
-    jar.from(configurations.runtimeClasspath.get().map { if (it.isDirectory) zipTree(it) else it })
+    application.mainClassName = "stonks.MainKt"
+    val shadowJar: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar by tasks
+    shadowJar.manifest.attributes["Main-Class"] = "stonks.MainKt"
 }
 
 project(":cabinet") {
-    tasks.getByName("test").dependsOn(":stonks:jar")
+    tasks.getByName("test").dependsOn(":stonks:shadowJar")
+    val test: Test by tasks
+    test.apply {
+        environment("projectPath", projectDir)
+    }
 }
