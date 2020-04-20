@@ -1,2 +1,4 @@
-rootProject.name = "kotlin-template"
+rootProject.name = "ppo-testcontainers"
+
+include("cabinet", "stonks")
 
